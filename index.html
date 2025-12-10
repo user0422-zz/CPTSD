@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>童年创伤应激反应专业测试</title>
+    <!-- 引入Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 配置Tailwind自定义样式 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4F46E5',
+                        secondary: '#7C3AED',
+                        neutral: '#1F2937',
+                        light: '#F3F4F6',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .progress-bar {
+                transition: width 0.3s ease;
+            }
+            .question-card {
+                transition: all 0.2s ease;
+            }
+            .question-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            }
+            /* 纵向滑动容器样式 */
+            .quiz-slider {
+                position: relative;
+                overflow: hidden;
+                height: calc(100vh - 120px);
+                width: 100%;
+            }
+            .slides-container {
+                display: flex;
+                flex-direction: column; /* 改为纵向排列 */
+                transition: transform 0.5s ease;
+                height: 100%;
+                width: 100%;
+            }
+            .slide {
+                min-height: 100%; /* 每个slide占满容器高度 */
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                box-sizing: border-box;
+            }
+            /* 滑动提示样式（改为上下滑动提示） */
+            .swipe-hint {
+                position: fixed;
+                bottom: 40px;
+                left: 50%;
+                transform: translateX(-50%);
+                z-index: 10;
+                opacity: 0.7;
+                transition: opacity 0.3s ease;
+                text-align: center;
+            }
+            .swipe-hint.hidden {
+                opacity: 0;
+                pointer-events: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans text-neutral overflow-x-hidden">
+    <!-- 页面加载遮罩 -->
+    <div id="loader" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="spinner-border animate-spin inline-block w-12 h-12 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
+            <p class="text-lg text-neutral">测试加载中...</p>
+        </div>
+    </div>
+
+    <!-- 1. 欢迎页面 -->
+    <section id="welcome-page" class="container mx-auto px-4 py-16 max-w-4xl">
+        <div class="bg-white rounded-2xl shadow-lg p-8 md:p-10">
+            <h1 class="text-[clamp(1.8rem,4vw,2.5rem)] font-bold text-center text-primary mb-6">童年创伤应激反应专业测评</h1>
+            <div class="text-gray-700 mb-8 space-y-4">
+                <p>本测评包含25道专业题目，从<span class="font-semibold text-secondary">情感忽视、身体虐待、情感虐待、家庭动荡、丧失体验</span>5个维度，评估童年创伤带来的应激反应程度。</p>
+                <p class="text-red-600 font-medium">⚠️ 重要提示：本测评仅作自我认知参考，不构成专业诊断。若感到严重不适，建议联系心理咨询师或精神科医生。</p>
+                <p>📌 规则：每题根据你的真实经历选择符合程度，<span class="text-primary font-medium">向上/向下滑动屏幕切换题目</span>，完成后生成专属分析报告，<span class="font-semibold">同一IP每日限测3次</span>。</p>
+            </div>
+            <div class="flex justify-center">
+                <button id="start-test" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-xl">
+                    开始测评
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2. 答题页面 -->
+    <section id="quiz-page" class="container mx-auto px-4 py-8 max-w-4xl hidden">
+        <!-- 进度条 -->
+        <div class="bg-white rounded-lg shadow-sm mb-4 p-4">
+            <div class="flex justify-between text-sm mb-2">
+                <span id="progress-text">第 1/25 题</span>
+                <span id="remaining-count">剩余测试次数：2</span>
+            </div>
+            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div id="progress-bar" class="h-full bg-primary progress-bar w-0"></div>
+            </div>
+        </div>
+
+        <!-- 纵向滑动答题容器 -->
+        <div id="quiz-slider" class="quiz-slider">
+            <div id="slides-container" class="slides-container">
+                <!-- 题目slide将动态生成 -->
+            </div>
+        </div>
+
+        <!-- 上下滑动提示 -->
+        <div id="swipe-hint" class="swipe-hint text-center text-gray-500">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mb-1">
+                <path d="M12 19V5M5 12l7 7 7-7"></path>
+            </svg>
+            <span>上下滑动屏幕切换题目</span>
+        </div>
+
+        <!-- 提交按钮（最后一题显示） -->
+        <div id="submit-container" class="flex justify-center mt-8 hidden">
+            <button id="submit-btn" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-xl">
+                生成测评报告
+            </button>
+        </div>
+    </section>
+
+    <!-- 3. 结果页面 -->
+    <section id="result-page" class="container mx-auto px-4 py-8 max-w-4xl hidden">
+        <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 mb-8">
+            <h2 class="text-2xl font-bold text-center mb-8 text-primary">你的童年创伤应激反应分析报告</h2>
+            
+            <!-- 雷达图容器 -->
+            <div class="h-[300px] md:h-[400px] mb-8">
+                <canvas id="radar-chart"></canvas>
+            </div>
+
+            <!-- 总分与维度得分 -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold mb-4">核心得分汇总</h3>
+                <div id="score-summary" class="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
+                    <!-- 维度得分动态生成 -->
+                </div>
+                <div class="mt-4 text-center text-xl font-bold">
+                    总得分：<span id="total-score">0</span>/100
+                </div>
+            </div>
+
+            <!-- 深刻解析 -->
+            <div id="analysis-content" class="space-y-6 text-gray-700">
+                <!-- 解析内容动态生成 -->
+            </div>
+
+            <!-- 免责声明 -->
+            <div class="mt-8 pt-6 border-t border-gray-200 text-sm text-gray-500">
+                <p>免责声明：本测评结果仅基于你提供的信息进行分析，不构成专业的心理诊断或治疗建议。如果你正遭受心理困扰，请及时寻求专业心理咨询师或医疗机构的帮助。</p>
+            </div>
+        </div>
+
+        <!-- 重新测试按钮（带次数检查） -->
+        <div class="flex justify-center">
+            <button id="restart-btn" class="bg-secondary hover:bg-secondary/90 text-white font-medium py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-xl">
+                重新测评
+            </button>
+        </div>
+    </section>
+
+    <!-- 次数超限提示 -->
+    <section id="limit-page" class="container mx-auto px-4 py-16 max-w-4xl hidden">
+        <div class="bg-white rounded-2xl shadow-lg p-8 text-center">
+            <h2 class="text-2xl font-bold text-red-600 mb-4">测试次数已达上限</h2>
+            <p class="text-gray-700 mb-6">为保证测试结果的有效性，同一IP地址每日仅限完成3次测评。</p>
+            <p class="text-gray-500">请于24小时后再次尝试，或结合本次测评结果进行自我梳理。</p>
+        </div>
+    </section>
+
+    <script>
+        // ===================== 核心配置 =====================
+        // 1. 测试题库（25题，5个维度各5题）
+        const questions = [
+            // 维度1：情感忽视（5题）
+            { id: 1, text: "童年时，你的情绪需求（如难过、害怕）很少被家人关注或回应", dimension: "情感忽视" },
+            { id: 2, text: "小时候，即使取得好成绩/做好事，也很少得到家人的表扬或认可", dimension: "情感忽视" },
+            { id: 3, text: "童年时期，你感觉自己像是家里的“透明人”，很少有人真正关心你的想法", dimension: "情感忽视" },
+            { id: 4, text: "小时候生病/受伤时，家人的关心和照顾很敷衍或缺失", dimension: "情感忽视" },
+            { id: 5, text: "童年时，你需要独自面对恐惧、孤独等负面情绪，无人倾诉", dimension: "情感忽视" },
+            
+            // 维度2：身体虐待（5题）
+            { id: 6, text: "童年时，曾被家人用手、棍子等工具殴打，造成身体疼痛/伤痕", dimension: "身体虐待" },
+            { id: 7, text: "小时候，曾被家人推搡、拖拽或关禁闭作为惩罚", dimension: "身体虐待" },
+            { id: 8, text: "童年时，家人曾以“教训”为名对你进行过度的身体惩罚", dimension: "身体虐待" },
+            { id: 9, text: "小时候，曾因家人的暴力行为而害怕回家/害怕独处", dimension: "身体虐待" },
+            { id: 10, text: "童年时，曾因身体伤害向他人求助，但未得到有效帮助", dimension: "身体虐待" },
+            
+            // 维度3：情感虐待（5题）
+            { id: 11, text: "童年时，常被家人辱骂、贬低（如“没用”“笨”）或言语攻击", dimension: "情感虐待" },
+            { id: 12, text: "小时候，家人常拿你和他人比较，并否定你的价值", dimension: "情感虐待" },
+            { id: 13, text: "童年时，曾被家人威胁“不要你了”“把你扔掉”等言语伤害", dimension: "情感虐待" },
+            { id: 14, text: "小时候，家人常对你进行冷暴力（如长时间不理睬、刻意疏远）", dimension: "情感虐待" },
+            { id: 15, text: "童年时，你的自尊和自信被家人的负面评价严重打击", dimension: "情感虐待" },
+            
+            // 维度4：家庭动荡（5题）
+            { id: 16, text: "童年时，家庭频繁搬家/更换生活环境，缺乏稳定感", dimension: "家庭动荡" },
+            { id: 17, text: "小时候，父母经常争吵、打架，家庭氛围充满冲突", dimension: "家庭动荡" },
+            { id: 18, text: "童年时期，经历过父母离异、分居或家庭成员突然离开", dimension: "家庭动荡" },
+            { id: 19, text: "小时候，家中有酗酒、赌博等不良行为，影响正常生活", dimension: "家庭动荡" },
+            { id: 20, text: "童年时，曾因家庭变故被迫寄人篱下/离开熟悉的生活圈", dimension: "家庭动荡" },
+            
+            // 维度5：丧失体验（5题）
+            { id: 21, text: "童年时，失去过重要的亲人（如父母、祖父母）且未得到妥善的心理疏导", dimension: "丧失体验" },
+            { id: 22, text: "小时候，曾被重要的人（如父母）抛弃或长期分离", dimension: "丧失体验" },
+            { id: 23, text: "童年时，曾失去心爱的宠物/物品，且情绪未被理解", dimension: "丧失体验" },
+            { id: 24, text: "小时候，曾经历过重大事故/灾难，留下心理阴影", dimension: "丧失体验" },
+            { id: 25, text: "童年时，曾因他人的离世/离开而产生强烈的无助感和恐惧感", dimension: "丧失体验" }
+        ];
+
+        // 2. 选项配置（1-4分，对应符合程度）
+        const options = [
+            { value: 1, text: "完全不符合" },
+            { value: 2, text: "不太符合" },
+            { value: 3, text: "比较符合" },
+            { value: 4, text: "完全符合" }
+        ];
+
+        // 3. 解析配置（按总分分层）
+        const analysisConfig = {
+            low: {
+                range: [25, 40],
+                title: "轻度应激反应",
+                content: `
+                    <p>你的童年创伤应激反应处于轻度水平，说明童年经历中虽有一些不愉快的体验，但未对你的心理状态造成持续性的严重影响。</p>
+                    <p><strong>核心特征</strong>：你具备较好的情绪调节能力，童年的负面经历大多已被你消化或和解，对当前的人际关系、自我认知影响较小。</p>
+                    <p><strong>成长建议</strong>：可以尝试主动梳理童年的小遗憾，通过自我对话、记录等方式完成与过去的和解；保持现有的积极生活态度，继续关注自身情绪需求。</p>
+                `
+            },
+            medium: {
+                range: [41, 65],
+                title: "中度应激反应",
+                content: `
+                    <p>你的童年创伤应激反应处于中度水平，童年的某些负面经历仍在潜移默化地影响你的心理状态和行为模式。</p>
+                    <p><strong>核心特征</strong>：在特定场景下（如亲密关系、压力情境），你可能会表现出敏感、焦虑、回避等反应；部分维度（如{{highDimension}}）的得分较高，反映出该领域的经历对你影响更深。</p>
+                    <p><strong>成长建议</strong>：1. 识别触发你负面情绪的场景，提前做好心理准备；2. 学习情绪管理技巧（如深呼吸、正念冥想）；3. 若自我调节困难，可尝试与信任的人倾诉或寻求轻量级的心理咨询。</p>
+                `
+            },
+            high: {
+                range: [66, 80],
+                title: "重度应激反应",
+                content: `
+                    <p>你的童年创伤应激反应处于重度水平，童年的负面经历对你的心理结构、人际关系模式、自我价值感都产生了显著且持续的影响。</p>
+                    <p><strong>核心特征</strong>：你可能常感到焦虑、自卑、缺乏安全感，在亲密关系中容易出现过度依赖或回避行为；{{highDimension}}维度的高得分，反映出该类创伤是你主要的心理卡点。</p>
+                    <p><strong>成长建议</strong>：1. 优先关注自身心理健康，停止自我否定和内耗；2. 寻求专业心理咨询师的帮助，通过系统的心理疏导梳理童年创伤；3. 建立稳定的支持系统（如信任的朋友、家人），避免独自面对情绪崩溃。</p>
+                `
+            },
+            extreme: {
+                range: [81, 100],
+                title: "极重度应激反应",
+                content: `
+                    <p>你的童年创伤应激反应处于极重度水平，童年的创伤经历已严重影响你的日常生活、情绪状态和社会功能。</p>
+                    <p><strong>核心特征</strong>：你可能长期处于情绪低落、焦虑、易怒的状态，甚至出现睡眠障碍、人际关系隔离等问题；{{highDimension}}维度的极端得分，提示该类创伤需要紧急且专业的干预。</p>
+                    <p><strong>紧急建议</strong>：1. 立即联系专业的心理医疗机构或精神科医生，进行系统评估和治疗；2. 避免独自承受情绪压力，让信任的人陪伴你度过困难时期；3. 暂时减少高压力的生活场景，优先保障自身的心理安全。</p>
+                `
+            }
+        };
+
+        // ===================== 工具函数 =====================
+        // 1. 获取用户IP（使用ipapi.co接口）
+        async function getUserIP() {
+            try {
+                const response = await fetch('https://ipapi.co/json/');
+                const data = await response.json();
+                return data.ip || 'unknown-ip';
+            } catch (error) {
+                console.error("获取IP失败：", error);
+                // 降级方案：使用随机标识
+                return 'fallback-' + Math.random().toString(36).substr(2, 9);
+            }
+        }
+
+        // 2. 检查并更新测试次数
+        async function checkTestLimit() {
+            const ip = await getUserIP();
+            const storageKey = `trauma_test_${ip}`;
+            const today = new Date().toLocaleDateString();
+            
+            // 从localStorage获取记录
+            const testRecord = JSON.parse(localStorage.getItem(storageKey)) || {
+                date: today,
+                count: 0
+            };
+
+            // 跨天重置次数
+            if (testRecord.date !== today) {
+                testRecord.date = today;
+                testRecord.count = 0;
+            }
+
+            // 检查是否超限（每日3次）
+            if (testRecord.count >= 3) {
+                return { canTest: false, remaining: 0 };
+            }
+
+            return { canTest: true, remaining: 3 - testRecord.count - 1, record: testRecord, ip };
+        }
+
+        // 3. 记录测试次数
+        function updateTestCount(ip, record) {
+            const storageKey = `trauma_test_${ip}`;
+            record.count += 1;
+            localStorage.setItem(storageKey, JSON.stringify(record));
+        }
+
+        // ===================== 全局变量 =====================
+        let currentQuestionIndex = 0;
+        let userAnswers = Array(25).fill(0); // 存储用户答案
+        let dimensionScores = {
+            "情感忽视": 0,
+            "身体虐待": 0,
+            "情感虐待": 0,
+            "家庭动荡": 0,
+            "丧失体验": 0
+        };
+        let isSliding = false; // 防止重复滑动
+        let touchStartY = 0; // 触摸起始Y坐标（改为纵向）
+
+        // ===================== DOM元素 =====================
+        const loader = document.getElementById('loader');
+        const welcomePage = document.getElementById('welcome-page');
+        const quizPage = document.getElementById('quiz-page');
+        const resultPage = document.getElementById('result-page');
+        const limitPage = document.getElementById('limit-page');
+        const startBtn = document.getElementById('start-test');
+        const restartBtn = document.getElementById('restart-btn');
+        const submitBtn = document.getElementById('submit-btn');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        const remainingCount = document.getElementById('remaining-count');
+        const quizSlider = document.getElementById('quiz-slider');
+        const slidesContainer = document.getElementById('slides-container');
+        const swipeHint = document.getElementById('swipe-hint');
+        const submitContainer = document.getElementById('submit-container');
+
+        // ===================== 纵向滑动答题逻辑 =====================
+        // 1. 初始化所有题目slide（纵向）
+        function initSlides() {
+            slidesContainer.innerHTML = '';
+            
+            questions.forEach((question, index) => {
+                const slide = document.createElement('div');
+                slide.className = 'slide';
+                slide.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 w-full max-w-2xl question-card">
+                        <h2 class="text-xl font-semibold mb-6">${index + 1}. ${question.text}</h2>
+                        <div class="options-container space-y-3">
+                            ${options.map(option => `
+                                <div class="option-item p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-all" data-value="${option.value}">
+                                    <input type="radio" name="answer-${index}" id="option-${index}-${option.value}" class="mr-2" ${userAnswers[index] === option.value ? 'checked' : ''}>
+                                    <label for="option-${index}-${option.value}">${option.text}</label>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                // 绑定选项点击事件
+                slide.querySelectorAll('.option-item').forEach(optionEl => {
+                    optionEl.addEventListener('click', () => {
+                        const value = parseInt(optionEl.dataset.value);
+                        // 取消当前slide其他选项选中状态
+                        slide.querySelectorAll('[name="answer-' + index + '"]').forEach(input => {
+                            input.checked = false;
+                        });
+                        // 选中当前选项
+                        optionEl.querySelector('[name="answer-' + index + '"]').checked = true;
+                        // 存储答案
+                        userAnswers[index] = value;
+                        
+                        // 隐藏滑动提示
+                        swipeHint.classList.add('hidden');
+                    });
+                });
+                
+                slidesContainer.appendChild(slide);
+            });
+            
+            // 初始定位到第一个slide（纵向）
+            updateSlidePosition();
+        }
+
+        // 2. 更新slide位置（纵向）
+        function updateSlidePosition() {
+            // 纵向滑动：transform translateY
+            slidesContainer.style.transform = `translateY(-${currentQuestionIndex * 100}%)`;
+            
+            // 更新进度
+            const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `第 ${currentQuestionIndex + 1}/${questions.length} 题`;
+            
+            // 最后一题显示提交按钮，隐藏滑动提示
+            if (currentQuestionIndex === questions.length - 1) {
+                submitContainer.classList.remove('hidden');
+                swipeHint.classList.add('hidden');
+            } else {
+                submitContainer.classList.add('hidden');
+                // 未选择答案时显示滑动提示
+                if (userAnswers[currentQuestionIndex] === 0) {
+                    swipeHint.classList.remove('hidden');
+                }
+            }
+        }
+
+        // 3. 纵向滑动切换题目（统一上下逻辑）
+        function navigateSlide(direction) {
+            // 防止重复滑动
+            if (isSliding) return;
+            isSliding = true;
+            
+            const newIndex = currentQuestionIndex + direction;
+            
+            // 边界检查（0 ≤ index < 25）
+            if (newIndex < 0 || newIndex >= questions.length) {
+                isSliding = false;
+                return;
+            }
+            
+            // 检查当前题是否已选择答案（仅限制向下滑动/下一题）
+            if (direction > 0 && userAnswers[currentQuestionIndex] === 0) {
+                alert('请先选择一个选项再继续');
+                isSliding = false;
+                return;
+            }
+            
+            // 更新索引并切换
+            currentQuestionIndex = newIndex;
+            updateSlidePosition();
+            
+            // 恢复滑动状态
+            setTimeout(() => {
+                isSliding = false;
+            }, 500);
+        }
+
+        // 4. 绑定纵向滑动事件（所有设备统一上下）
+        function bindSwipeEvents() {
+            // 1. 鼠标滚轮事件（上下滚轮对应上下题）
+            quizSlider.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                // 向下滚轮（deltaY>0）= 下一题（+1），向上滚轮（deltaY<0）= 上一题（-1）
+                const direction = e.deltaY > 0 ? 1 : -1;
+                navigateSlide(direction);
+            }, { passive: false });
+            
+            // 2. 移动端触摸事件（上下滑动）
+            quizSlider.addEventListener('touchstart', (e) => {
+                // 记录触摸起始Y坐标
+                touchStartY = e.touches[0].clientY;
+            }, { passive: true });
+            
+            quizSlider.addEventListener('touchmove', (e) => {
+                e.preventDefault(); // 阻止默认滚动
+            }, { passive: false });
+            
+            quizSlider.addEventListener('touchend', (e) => {
+                // 计算触摸结束Y坐标与起始的差值
+                const touchEndY = e.changedTouches[0].clientY;
+                const diffY = touchStartY - touchEndY;
+                
+                // 滑动距离阈值（80px，防止误触）
+                if (Math.abs(diffY) > 80) {
+                    // 向下滑（diffY>0，手指从下往上滑）= 下一题（+1）
+                    // 向上滑（diffY<0，手指从上往下滑）= 上一题（-1）
+                    const direction = diffY > 0 ? 1 : -1;
+                    navigateSlide(direction);
+                }
+            }, { passive: true });
+            
+            // 3. 键盘事件（仅上下键）
+            document.addEventListener('keydown', (e) => {
+                if (quizPage.style.display !== 'none') {
+                    if (e.key === 'ArrowDown') {
+                        // 下键 = 下一题
+                        navigateSlide(1);
+                    } else if (e.key === 'ArrowUp') {
+                        // 上键 = 上一题
+                        navigateSlide(-1);
+                    }
+                }
+            });
+        }
+
+        // ===================== 页面逻辑 =====================
+        // 初始化页面
+        window.addEventListener('DOMContentLoaded', async () => {
+            // 检查测试次数
+            const limitCheck = await checkTestLimit();
+            if (!limitCheck.canTest) {
+                loader.style.display = 'none';
+                limitPage.style.display = 'block';
+                return;
+            }
+
+            // 更新剩余次数显示
+            remainingCount.textContent = `剩余测试次数：${limitCheck.remaining}`;
+
+            // 隐藏加载遮罩，显示欢迎页
+            setTimeout(() => {
+                loader.style.display = 'none';
+                welcomePage.style.display = 'block';
+            }, 800);
+            
+            // 绑定纵向滑动事件
+            bindSwipeEvents();
+        });
+
+        // 开始测试按钮
+        startBtn.addEventListener('click', async () => {
+            const limitCheck = await checkTestLimit();
+            if (!limitCheck.canTest) {
+                welcomePage.style.display = 'none';
+                limitPage.style.display = 'block';
+                return;
+            }
+
+            // 初始化题目slides（纵向）
+            initSlides();
+            
+            // 切换到答题页
+            welcomePage.style.display = 'none';
+            quizPage.style.display = 'block';
+        });
+
+        // 提交按钮（最后一题）
+        submitBtn.addEventListener('click', async () => {
+            // 检查最后一题是否选择答案
+            if (userAnswers[currentQuestionIndex] === 0) {
+                alert('请选择一个选项后生成报告');
+                return;
+            }
+
+            // 记录测试次数
+            const limitCheck = await checkTestLimit();
+            updateTestCount(limitCheck.ip, limitCheck.record);
+
+            // 计算维度得分和总分
+            calculateScores();
+            // 展示结果
+            quizPage.style.display = 'none';
+            resultPage.style.display = 'block';
+            renderResult();
+        });
+
+        // 计算维度得分和总分
+        function calculateScores() {
+            // 重置维度得分
+            for (let dim in dimensionScores) {
+                dimensionScores[dim] = 0;
+            }
+
+            // 按维度累加得分
+            questions.forEach((question, index) => {
+                dimensionScores[question.dimension] += Number(userAnswers[index]);
+            });
+
+            // 计算总分
+            const totalScore = userAnswers.reduce((sum, score) => sum + Number(score), 0);
+            dimensionScores.total = totalScore;
+        }
+
+        // 渲染结果页面
+        function renderResult() {
+            // 1. 生成得分汇总
+            const scoreSummary = document.getElementById('score-summary');
+            scoreSummary.innerHTML = '';
+            for (let dim in dimensionScores) {
+                if (dim === 'total') continue;
+                const dimScore = dimensionScores[dim];
+                const dimPercent = (dimScore / 20) * 100; // 每个维度5题，每题4分，满分20
+                
+                const scoreCard = document.createElement('div');
+                scoreCard.className = 'bg-gray-50 rounded-lg p-3';
+                scoreCard.innerHTML = `
+                    <h4 class="font-medium mb-2">${dim}</h4>
+                    <div class="text-xl font-bold text-secondary">${dimScore}/20</div>
+                    <div class="h-1 bg-gray-200 rounded-full mt-2">
+                        <div class="h-full bg-primary rounded-full" style="width: ${dimPercent}%"></div>
+                    </div>
+                `;
+                scoreSummary.appendChild(scoreCard);
+            }
+
+            // 显示总分
+            document.getElementById('total-score').textContent = dimensionScores.total;
+
+            // 2. 绘制雷达图
+            const ctx = document.getElementById('radar-chart').getContext('2d');
+            const dimensionLabels = Object.keys(dimensionScores).filter(dim => dim !== 'total');
+            const dimensionValues = dimensionLabels.map(dim => dimensionScores[dim]);
+
+            new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: dimensionLabels,
+                    datasets: [{
+                        label: '你的得分',
+                        data: dimensionValues,
+                        backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(79, 70, 229, 1)',
+                        pointRadius: 4
+                    }, {
+                        label: '平均参考值',
+                        data: [10, 10, 10, 10, 10], // 每个维度平均分10
+                        backgroundColor: 'rgba(156, 163, 175, 0.1)',
+                        borderColor: 'rgba(156, 163, 175, 1)',
+                        borderWidth: 1,
+                        pointBackgroundColor: 'rgba(156, 163, 175, 1)',
+                        pointRadius: 2,
+                        borderDash: [5, 5]
+                    }]
+                },
+                options: {
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 20, // 每个维度满分20
+                            ticks: {
+                                stepSize: 5
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // 3. 生成解析内容
+            const analysisContent = document.getElementById('analysis-content');
+            const totalScore = dimensionScores.total;
+            let analysis = null;
+
+            // 确定解析层级
+            if (totalScore >= analysisConfig.extreme.range[0] && totalScore <= analysisConfig.extreme.range[1]) {
+                analysis = analysisConfig.extreme;
+            } else if (totalScore >= analysisConfig.high.range[0] && totalScore <= analysisConfig.high.range[1]) {
+                analysis = analysisConfig.high;
+            } else if (totalScore >= analysisConfig.medium.range[0] && totalScore <= analysisConfig.medium.range[1]) {
+                analysis = analysisConfig.medium;
+            } else {
+                analysis = analysisConfig.low;
+            }
+
+            // 找出得分最高的维度
+            let highDimension = '';
+            let maxScore = 0;
+            for (let dim in dimensionScores) {
+                if (dim !== 'total' && dimensionScores[dim] > maxScore) {
+                    maxScore = dimensionScores[dim];
+                    highDimension = dim;
+                }
+            }
+
+            // 替换解析中的变量
+            let analysisHtml = `<h3 class="text-xl font-semibold text-secondary">${analysis.title}</h3>`;
+            analysisHtml += analysis.content.replace(/{{highDimension}}/g, highDimension);
+
+            // 添加维度专项解析
+            analysisHtml += `
+                <div class="mt-6 pt-4 border-t border-gray-200">
+                    <h4 class="font-semibold mb-2">维度专项解析：${highDimension}</h4>
+                    <p>${getDimensionAnalysis(highDimension)}</p>
+                </div>
+            `;
+
+            analysisContent.innerHTML = analysisHtml;
+        }
+
+        // 获取维度专项解析
+        function getDimensionAnalysis(dimension) {
+            const dimensionAnalysis = {
+                "情感忽视": "情感忽视的核心影响是让你在成长过程中缺乏情感滋养，可能导致你成年后不擅长表达自身情绪，也难以识别他人的情感需求。你可能会习惯性地压抑自己的感受，或在亲密关系中感到“不被理解”。建议你尝试主动表达情绪，从小事开始练习自我关怀。",
+                "身体虐待": "身体虐待带来的不仅是生理伤害，更会造成“安全感缺失”的核心问题。你可能对身体接触敏感，或在冲突中容易感到恐惧、易怒。重建安全感需要时间，可通过规律的生活、自我保护练习，逐步修复对身体和环境的信任。",
+                "情感虐待": "情感虐待会直接破坏你的自我价值感，导致你长期处于自我怀疑、自卑的状态。你可能会过度在意他人评价，或在人际关系中表现出讨好型行为。核心的修复方向是重新建立自我认同，学会区分“他人的评价”和“真实的自己”。",
+                "家庭动荡": "家庭动荡让你失去了稳定的成长环境，可能导致你对变化、不确定性过度敏感，或在生活中追求极致的控制感。建议你从建立小的生活规律开始，逐步培养对生活的掌控感，同时接纳生活中的不确定性。",
+                "丧失体验": "丧失体验会让你对“分离”“失去”产生强烈的恐惧，可能表现为过度依赖他人，或刻意回避深度关系。修复的关键是正视丧失带来的悲伤，允许自己哀悼过去的失去，同时在当下建立新的、稳定的连接。"
+            };
+            return dimensionAnalysis[dimension];
+        }
+
+        // 重新测试按钮
+        restartBtn.addEventListener('click', async () => {
+            // 检查测试次数
+            const limitCheck = await checkTestLimit();
+            if (!limitCheck.canTest) {
+                resultPage.style.display = 'none';
+                limitPage.style.display = 'block';
+                return;
+            }
+
+            // 重置状态
+            currentQuestionIndex = 0;
+            userAnswers = Array(25).fill(0);
+            dimensionScores = {
+                "情感忽视": 0,
+                "身体虐待": 0,
+                "情感虐待": 0,
+                "家庭动荡": 0,
+                "丧失体验": 0
+            };
+
+            // 更新剩余次数显示
+            remainingCount.textContent = `剩余测试次数：${limitCheck.remaining}`;
+
+            // 重新初始化slides（纵向）
+            initSlides();
+            
+            // 切换到答题页
+            resultPage.style.display = 'none';
+            quizPage.style.display = 'block';
+        });
+    </script>
+</body>
+</html>
