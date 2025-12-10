@@ -36,53 +36,28 @@
             }
             .question-card {
                 transition: all 0.2s ease;
+                min-height: calc(100vh - 120px); /* 每个题目占满可视区域高度 */
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
             .question-card:hover {
                 transform: translateY(-2px);
                 box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
             }
-            /* 纵向滑动容器样式 */
-            .quiz-slider {
-                position: relative;
-                overflow: hidden;
-                height: calc(100vh - 120px);
-                width: 100%;
-            }
-            .slides-container {
-                display: flex;
-                flex-direction: column; /* 改为纵向排列 */
-                transition: transform 0.5s ease;
-                height: 100%;
-                width: 100%;
-            }
-            .slide {
-                min-height: 100%; /* 每个slide占满容器高度 */
-                width: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-                box-sizing: border-box;
-            }
-            /* 滑动提示样式（改为上下滑动提示） */
-            .swipe-hint {
-                position: fixed;
-                bottom: 40px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 10;
-                opacity: 0.7;
-                transition: opacity 0.3s ease;
-                text-align: center;
-            }
-            .swipe-hint.hidden {
-                opacity: 0;
-                pointer-events: none;
+            /* 进度条固定在顶部 */
+            .progress-container {
+                position: sticky;
+                top: 0;
+                z-index: 100;
+                background: white;
+                padding: 10px 0;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
             }
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans text-neutral overflow-x-hidden">
+<body class="bg-gray-50 min-h-screen font-sans text-neutral">
     <!-- 页面加载遮罩 -->
     <div id="loader" class="fixed inset-0 bg-white flex items-center justify-center z-50">
         <div class="text-center">
@@ -98,7 +73,7 @@
             <div class="text-gray-700 mb-8 space-y-4">
                 <p>本测评包含25道专业题目，从<span class="font-semibold text-secondary">情感忽视、身体虐待、情感虐待、家庭动荡、丧失体验</span>5个维度，评估童年创伤带来的应激反应程度。</p>
                 <p class="text-red-600 font-medium">⚠️ 重要提示：本测评仅作自我认知参考，不构成专业诊断。若感到严重不适，建议联系心理咨询师或精神科医生。</p>
-                <p>📌 规则：每题根据你的真实经历选择符合程度，<span class="text-primary font-medium">向上/向下滑动屏幕切换题目</span>，完成后生成专属分析报告，<span class="font-semibold">同一IP每日限测3次</span>。</p>
+                <p>📌 规则：每题根据你的真实经历选择符合程度，<span class="text-primary font-medium">滚动页面浏览所有题目</span>，完成后点击底部按钮生成专属分析报告，<span class="font-semibold">同一IP每日限测3次</span>。</p>
             </div>
             <div class="flex justify-center">
                 <button id="start-test" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-xl">
@@ -109,38 +84,32 @@
     </section>
 
     <!-- 2. 答题页面 -->
-    <section id="quiz-page" class="container mx-auto px-4 py-8 max-w-4xl hidden">
-        <!-- 进度条 -->
-        <div class="bg-white rounded-lg shadow-sm mb-4 p-4">
-            <div class="flex justify-between text-sm mb-2">
-                <span id="progress-text">第 1/25 题</span>
-                <span id="remaining-count">剩余测试次数：2</span>
-            </div>
-            <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div id="progress-bar" class="h-full bg-primary progress-bar w-0"></div>
-            </div>
-        </div>
-
-        <!-- 纵向滑动答题容器 -->
-        <div id="quiz-slider" class="quiz-slider">
-            <div id="slides-container" class="slides-container">
-                <!-- 题目slide将动态生成 -->
+    <section id="quiz-page" class="container mx-auto px-4 py-4 max-w-4xl hidden">
+        <!-- 固定顶部的进度条 -->
+        <div class="progress-container">
+            <div class="max-w-4xl mx-auto px-4">
+                <div class="flex justify-between text-sm mb-2">
+                    <span id="progress-text">第 1/25 题</span>
+                    <span id="remaining-count">剩余测试次数：2</span>
+                </div>
+                <div class="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div id="progress-bar" class="h-full bg-primary progress-bar w-0"></div>
+                </div>
             </div>
         </div>
 
-        <!-- 上下滑动提示 -->
-        <div id="swipe-hint" class="swipe-hint text-center text-gray-500">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block mb-1">
-                <path d="M12 19V5M5 12l7 7 7-7"></path>
-            </svg>
-            <span>上下滑动屏幕切换题目</span>
+        <!-- 题目列表（自然滚动） -->
+        <div id="questions-container" class="py-8 space-y-8">
+            <!-- 题目将动态生成 -->
         </div>
 
-        <!-- 提交按钮（最后一题显示） -->
-        <div id="submit-container" class="flex justify-center mt-8 hidden">
-            <button id="submit-btn" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-xl">
-                生成测评报告
-            </button>
+        <!-- 提交按钮（固定底部） -->
+        <div class="fixed bottom-0 left-0 right-0 bg-white py-4 shadow-lg z-90">
+            <div class="container mx-auto px-4 max-w-4xl flex justify-center">
+                <button id="submit-btn" class="bg-primary hover:bg-primary/90 text-white font-medium py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-xl">
+                    生成测评报告
+                </button>
+            </div>
         </div>
     </section>
 
@@ -177,7 +146,7 @@
         </div>
 
         <!-- 重新测试按钮（带次数检查） -->
-        <div class="flex justify-center">
+        <div class="flex justify-center mb-16"> <!-- 预留底部按钮空间 -->
             <button id="restart-btn" class="bg-secondary hover:bg-secondary/90 text-white font-medium py-3 px-8 rounded-lg transition-all shadow-lg hover:shadow-xl">
                 重新测评
             </button>
@@ -221,6 +190,7 @@
             // 维度4：家庭动荡（5题）
             { id: 16, text: "童年时，家庭频繁搬家/更换生活环境，缺乏稳定感", dimension: "家庭动荡" },
             { id: 17, text: "小时候，父母经常争吵、打架，家庭氛围充满冲突", dimension: "家庭动荡" },
+            { id: 18, text: "童年时期，经历过父母离异、分居或家庭成员突然离开", dimension: "家庭动荡" },
             { id: 18, text: "童年时期，经历过父母离异、分居或家庭成员突然离开", dimension: "家庭动荡" },
             { id: 19, text: "小时候，家中有酗酒、赌博等不良行为，影响正常生活", dimension: "家庭动荡" },
             { id: 20, text: "童年时，曾因家庭变故被迫寄人篱下/离开熟悉的生活圈", dimension: "家庭动荡" },
@@ -329,7 +299,6 @@
         }
 
         // ===================== 全局变量 =====================
-        let currentQuestionIndex = 0;
         let userAnswers = Array(25).fill(0); // 存储用户答案
         let dimensionScores = {
             "情感忽视": 0,
@@ -338,8 +307,6 @@
             "家庭动荡": 0,
             "丧失体验": 0
         };
-        let isSliding = false; // 防止重复滑动
-        let touchStartY = 0; // 触摸起始Y坐标（改为纵向）
 
         // ===================== DOM元素 =====================
         const loader = document.getElementById('loader');
@@ -353,21 +320,19 @@
         const progressBar = document.getElementById('progress-bar');
         const progressText = document.getElementById('progress-text');
         const remainingCount = document.getElementById('remaining-count');
-        const quizSlider = document.getElementById('quiz-slider');
-        const slidesContainer = document.getElementById('slides-container');
-        const swipeHint = document.getElementById('swipe-hint');
-        const submitContainer = document.getElementById('submit-container');
+        const questionsContainer = document.getElementById('questions-container');
 
-        // ===================== 纵向滑动答题逻辑 =====================
-        // 1. 初始化所有题目slide（纵向）
-        function initSlides() {
-            slidesContainer.innerHTML = '';
+        // ===================== 原生滚动答题逻辑 =====================
+        // 1. 初始化所有题目（原生滚动布局）
+        function initQuestions() {
+            questionsContainer.innerHTML = '';
             
             questions.forEach((question, index) => {
-                const slide = document.createElement('div');
-                slide.className = 'slide';
-                slide.innerHTML = `
-                    <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 w-full max-w-2xl question-card">
+                const questionCard = document.createElement('div');
+                questionCard.className = 'question-card';
+                questionCard.dataset.index = index;
+                questionCard.innerHTML = `
+                    <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8 w-full max-w-2xl">
                         <h2 class="text-xl font-semibold mb-6">${index + 1}. ${question.text}</h2>
                         <div class="options-container space-y-3">
                             ${options.map(option => `
@@ -381,130 +346,57 @@
                 `;
                 
                 // 绑定选项点击事件
-                slide.querySelectorAll('.option-item').forEach(optionEl => {
+                questionCard.querySelectorAll('.option-item').forEach(optionEl => {
                     optionEl.addEventListener('click', () => {
                         const value = parseInt(optionEl.dataset.value);
-                        // 取消当前slide其他选项选中状态
-                        slide.querySelectorAll('[name="answer-' + index + '"]').forEach(input => {
+                        // 取消当前题目其他选项选中状态
+                        questionCard.querySelectorAll('[name="answer-' + index + '"]').forEach(input => {
                             input.checked = false;
                         });
                         // 选中当前选项
                         optionEl.querySelector('[name="answer-' + index + '"]').checked = true;
                         // 存储答案
                         userAnswers[index] = value;
-                        
-                        // 隐藏滑动提示
-                        swipeHint.classList.add('hidden');
                     });
                 });
                 
-                slidesContainer.appendChild(slide);
+                questionsContainer.appendChild(questionCard);
             });
-            
-            // 初始定位到第一个slide（纵向）
-            updateSlidePosition();
         }
 
-        // 2. 更新slide位置（纵向）
-        function updateSlidePosition() {
-            // 纵向滑动：transform translateY
-            slidesContainer.style.transform = `translateY(-${currentQuestionIndex * 100}%)`;
-            
-            // 更新进度
-            const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
-            progressBar.style.width = `${progress}%`;
-            progressText.textContent = `第 ${currentQuestionIndex + 1}/${questions.length} 题`;
-            
-            // 最后一题显示提交按钮，隐藏滑动提示
-            if (currentQuestionIndex === questions.length - 1) {
-                submitContainer.classList.remove('hidden');
-                swipeHint.classList.add('hidden');
-            } else {
-                submitContainer.classList.add('hidden');
-                // 未选择答案时显示滑动提示
-                if (userAnswers[currentQuestionIndex] === 0) {
-                    swipeHint.classList.remove('hidden');
-                }
-            }
-        }
-
-        // 3. 纵向滑动切换题目（统一上下逻辑）
-        function navigateSlide(direction) {
-            // 防止重复滑动
-            if (isSliding) return;
-            isSliding = true;
-            
-            const newIndex = currentQuestionIndex + direction;
-            
-            // 边界检查（0 ≤ index < 25）
-            if (newIndex < 0 || newIndex >= questions.length) {
-                isSliding = false;
-                return;
-            }
-            
-            // 检查当前题是否已选择答案（仅限制向下滑动/下一题）
-            if (direction > 0 && userAnswers[currentQuestionIndex] === 0) {
-                alert('请先选择一个选项再继续');
-                isSliding = false;
-                return;
-            }
-            
-            // 更新索引并切换
-            currentQuestionIndex = newIndex;
-            updateSlidePosition();
-            
-            // 恢复滑动状态
-            setTimeout(() => {
-                isSliding = false;
-            }, 500);
-        }
-
-        // 4. 绑定纵向滑动事件（所有设备统一上下）
-        function bindSwipeEvents() {
-            // 1. 鼠标滚轮事件（上下滚轮对应上下题）
-            quizSlider.addEventListener('wheel', (e) => {
-                e.preventDefault();
-                // 向下滚轮（deltaY>0）= 下一题（+1），向上滚轮（deltaY<0）= 上一题（-1）
-                const direction = e.deltaY > 0 ? 1 : -1;
-                navigateSlide(direction);
-            }, { passive: false });
-            
-            // 2. 移动端触摸事件（上下滑动）
-            quizSlider.addEventListener('touchstart', (e) => {
-                // 记录触摸起始Y坐标
-                touchStartY = e.touches[0].clientY;
-            }, { passive: true });
-            
-            quizSlider.addEventListener('touchmove', (e) => {
-                e.preventDefault(); // 阻止默认滚动
-            }, { passive: false });
-            
-            quizSlider.addEventListener('touchend', (e) => {
-                // 计算触摸结束Y坐标与起始的差值
-                const touchEndY = e.changedTouches[0].clientY;
-                const diffY = touchStartY - touchEndY;
+        // 2. 监听滚动事件，更新进度条和当前题目提示
+        function bindScrollListener() {
+            window.addEventListener('scroll', () => {
+                // 计算当前可视区域的题目索引
+                const questionCards = document.querySelectorAll('.question-card');
+                let currentIndex = 0;
                 
-                // 滑动距离阈值（80px，防止误触）
-                if (Math.abs(diffY) > 80) {
-                    // 向下滑（diffY>0，手指从下往上滑）= 下一题（+1）
-                    // 向上滑（diffY<0，手指从上往下滑）= 上一题（-1）
-                    const direction = diffY > 0 ? 1 : -1;
-                    navigateSlide(direction);
-                }
-            }, { passive: true });
-            
-            // 3. 键盘事件（仅上下键）
-            document.addEventListener('keydown', (e) => {
-                if (quizPage.style.display !== 'none') {
-                    if (e.key === 'ArrowDown') {
-                        // 下键 = 下一题
-                        navigateSlide(1);
-                    } else if (e.key === 'ArrowUp') {
-                        // 上键 = 上一题
-                        navigateSlide(-1);
+                questionCards.forEach((card, index) => {
+                    const rect = card.getBoundingClientRect();
+                    // 当卡片顶部进入可视区域（或占据主要可视区域）时，视为当前题目
+                    if (rect.top <= window.innerHeight / 2 && rect.bottom >= window.innerHeight / 2) {
+                        currentIndex = index;
                     }
-                }
+                });
+                
+                // 更新进度
+                const progress = ((currentIndex + 1) / questions.length) * 100;
+                progressBar.style.width = `${progress}%`;
+                progressText.textContent = `第 ${currentIndex + 1}/${questions.length} 题`;
             });
+        }
+
+        // 3. 校验所有题目是否作答
+        function validateAllAnswers() {
+            const unanswered = userAnswers.findIndex(answer => answer === 0);
+            if (unanswered !== -1) {
+                // 滚动到未作答的题目
+                const unansweredCard = document.querySelector(`.question-card[data-index="${unanswered}"]`);
+                unansweredCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                alert(`请完成第 ${unanswered + 1} 题的作答后再提交`);
+                return false;
+            }
+            return true;
         }
 
         // ===================== 页面逻辑 =====================
@@ -527,8 +419,8 @@
                 welcomePage.style.display = 'block';
             }, 800);
             
-            // 绑定纵向滑动事件
-            bindSwipeEvents();
+            // 绑定滚动监听
+            bindScrollListener();
         });
 
         // 开始测试按钮
@@ -540,19 +432,21 @@
                 return;
             }
 
-            // 初始化题目slides（纵向）
-            initSlides();
+            // 初始化题目（原生滚动）
+            initQuestions();
             
             // 切换到答题页
             welcomePage.style.display = 'none';
             quizPage.style.display = 'block';
+            
+            // 滚动到顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
 
-        // 提交按钮（最后一题）
+        // 提交按钮
         submitBtn.addEventListener('click', async () => {
-            // 检查最后一题是否选择答案
-            if (userAnswers[currentQuestionIndex] === 0) {
-                alert('请选择一个选项后生成报告');
+            // 校验所有题目是否作答
+            if (!validateAllAnswers()) {
                 return;
             }
 
@@ -566,6 +460,9 @@
             quizPage.style.display = 'none';
             resultPage.style.display = 'block';
             renderResult();
+            
+            // 滚动到结果顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
 
         // 计算维度得分和总分
@@ -720,7 +617,6 @@
             }
 
             // 重置状态
-            currentQuestionIndex = 0;
             userAnswers = Array(25).fill(0);
             dimensionScores = {
                 "情感忽视": 0,
@@ -733,12 +629,15 @@
             // 更新剩余次数显示
             remainingCount.textContent = `剩余测试次数：${limitCheck.remaining}`;
 
-            // 重新初始化slides（纵向）
-            initSlides();
+            // 重新初始化题目
+            initQuestions();
             
             // 切换到答题页
             resultPage.style.display = 'none';
             quizPage.style.display = 'block';
+            
+            // 滚动到顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         });
     </script>
 </body>
